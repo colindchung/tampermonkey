@@ -9,3 +9,5 @@ Install a script by creating a new script in Tampermonkey and pasting the corres
 ## GitHub PR context copier
 
 `scripts/github_pr_context.user.js` adds **Copy PR context** beside the PR heading. It copies Markdown containing the title, canonical URL, rendered description text, and visible check/merge summary. Use the Conversation tab with checks expanded for the fullest context. Missing content is explicitly labeled; the script never fetches credentials or calls external services. If clipboard access fails, it displays selectable text.
+
+The triage panel groups recognized Dependabot updates by dependency, with service paths and before/after versions. Different target versions are flagged for comparison, not as merge recommendations. Only currently loaded PRs are included; grouped updates without individual versions remain under Other PRs.

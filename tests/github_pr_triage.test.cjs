@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 
-function setup(pathname, modern) {
+function setup(pathname, modern, titles = ['Bump library']) {
     const elements = [];
     const listeners = {};
     class Element {
@@ -30,10 +30,18 @@ function setup(pathname, modern) {
     link.closest = () => modern ? null : row;
     link.parentElement = row;
     row.parentElement = new Element('MAIN');
+    const links = titles.map((text, index) => {
+        const item = new Element('A');
+        item.href = `https://github.com/owner/repo/pull/${123 + index}`;
+        item.textContent = text;
+        item.closest = link.closest;
+        item.parentElement = row;
+        return item;
+    });
     const heading = new Element('H1');
     const document = {
         body: new Element(), createElement: tag => new Element(tag.toUpperCase()),
-        querySelectorAll: () => [link], querySelector: () => heading,
+        querySelectorAll: () => links, querySelector: () => heading,
         addEventListener: (name, fn) => { listeners[name] = fn; }
     };
     const location = { origin: 'https://github.com', pathname };
@@ -61,4 +69,30 @@ test('mounts after GitHub navigation and removes outside PR list', () => {
     location.pathname = '/owner/repo/issues';
     listeners['turbo:render']();
     assert.equal(panel.isConnected, false);
+});
+
+test('groups services and flags distinct targets without losing unparsed PRs', () => {
+    const { panel } = setup('/owner/repo/pulls', false, [
+        'Bump hono from 4.12.27 to 4.13.7 in /apps/gql',
+        'Bump hono from 4.12.26 to 4.13.8 in /packages/database',
+        'Bump @scope/library from 1.0.0 to 1.0.1 in /apps/ai',
+        'Bump hono and prisma in /packages/database'
+    ]);
+    const text = JSON.stringify(panel.children);
+    assert.match(text, /hono \(2\) — Different targets: 4.13.7, 4.13.8/);
+    assert.match(text, /4.12.27 → 4.13.7/);
+    assert.match(text, /\/packages\/database/);
+    assert.match(text, /@scope\/library \(1\)/);
+    assert.match(text, /Other PRs \/ unparsed updates/);
+});
+test('matching targets do not flag differing starting versions', () => {
+    const { panel } = setup('/owner/repo/pulls', false, [
+        'Bump browserslist from 4.28.1 to 4.28.9 in /apps/ai',
+        'Bump browserslist from 4.25.1 to 4.28.9 in /apps/gql',
+        'Update restrictedpython requirement from >=6.0 to >=8.5 in /apps/code_runner'
+    ]);
+    const text = JSON.stringify(panel.children);
+    assert.match(text, /browserslist \(2\)/);
+    assert.doesNotMatch(text, /Different targets:/);
+    assert.match(text, />=6.0 → >=8.5/);
 });
