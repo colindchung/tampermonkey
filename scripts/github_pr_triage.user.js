@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         GitHub PR Triage
 // @namespace    https://github.com/colindchung/tampermonkey
-// @version      1.0.0
+// @version      1.1.0
 // @description  Highlight Dependabot PRs and summarize visible PR metadata.
-// @match        https://github.com/*/*/pulls*
+// @match        https://github.com/*
 // @grant        none
 // ==/UserScript==
 
@@ -11,6 +11,7 @@
     'use strict';
     const panel = document.createElement('details');
     panel.id = 'tm-pr-triage';
+    panel.open = true;
     panel.style.cssText = 'margin:16px 0;padding:12px;border:1px solid #8b949e;border-radius:6px;background:var(--bgColor-default,#fff);color:var(--fgColor-default,#1f2328)';
     const summary = document.createElement('summary');
     summary.textContent = 'PR triage — visible results';
@@ -19,10 +20,30 @@
     panel.append(body);
 
     function refresh() {
-        const rows = [...document.querySelectorAll('[id^="issue_"]')].filter(row =>
-            row.querySelector('a[href*="/pull/"]'));
+        if (!/^\/[^/]+\/[^/]+\/pulls(?:\/|$)/.test(location.pathname)) {
+            panel.remove(); return;
+        }
+        // GitHub's React list no longer consistently uses issue_<number> IDs.
+        const entries = new Map();
+        for (const link of document.querySelectorAll('main a[href]')) {
+            if (panel.contains(link)) continue;
+            const url = new URL(link.href, location.origin);
+            if (url.origin !== location.origin || !/^\/[^/]+\/[^/]+\/pull\/\d+$/.test(url.pathname)
+                || !link.textContent.trim() || /^#?\d+$/.test(link.textContent.trim())) continue;
+            let row = link.closest('[id^="issue_"], .js-issue-row, [data-testid="issue-row"], [role="listitem"], li');
+            // Find the smallest wrapper containing both the title and author/time.
+            if (!row) {
+                for (let ancestor = link.parentElement; ancestor && ancestor.tagName !== 'MAIN'; ancestor = ancestor.parentElement) {
+                    if (ancestor.querySelector('relative-time, time, a[href*="/apps/dependabot"], a[data-hovercard-type="user"]')) {
+                        row = ancestor; break;
+                    }
+                }
+            }
+            if (row && !entries.has(url.pathname)) entries.set(url.pathname, { row, title: link });
+        }
+        const rows = [...entries.values()];
         if (!rows.length) { panel.remove(); return; }
-        const host = document.querySelector('[aria-label="Issues"]') || rows[0].parentElement;
+        const host = document.querySelector('main h1') || rows[0].row;
         if (!panel.isConnected) host.before(panel);
         const table = document.createElement('table');
         table.style.cssText = 'width:100%;margin-top:12px;text-align:left';
@@ -33,9 +54,8 @@
             head.append(th);
         }
         const tbody = table.createTBody();
-        for (const row of rows) {
-            const title = row.querySelector('a[id^="issue_"][href*="/pull/"]') || row.querySelector('a[href*="/pull/"]');
-            const author = row.querySelector('.opened-by a') || row.querySelector('a[data-hovercard-type="user"]');
+        for (const { row, title } of rows) {
+            const author = row.querySelector('a[href*="/apps/dependabot"]') || row.querySelector('.opened-by a') || row.querySelector('a[data-hovercard-type="user"]');
             const bot = /dependabot/i.test(author?.textContent || row.textContent);
             row.style.boxShadow = bot ? 'inset 4px 0 #bf8700' : '';
             const tr = tbody.insertRow();
@@ -48,7 +68,7 @@
                 .flatMap(el => [el.getAttribute('aria-label'), el.getAttribute('title')])
                 .filter(value => value && /check|status|conflict|mergeable|failing|passed|pending/i.test(value));
             tr.insertCell().textContent = [...new Set(metadata)].join('; ') || 'Not shown — open PR';
-            const time = row.querySelector('relative-time');
+            const time = row.querySelector('relative-time, time');
             const cell = tr.insertCell();
             cell.textContent = time?.textContent.trim() || 'Unknown';
             cell.title = time?.getAttribute('datetime') || '';
@@ -61,5 +81,7 @@
         pending = true;
         setTimeout(() => { pending = false; refresh(); }, 200);
     }).observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('turbo:load', refresh);
+    document.addEventListener('turbo:render', refresh);
     refresh();
 })();
