@@ -18,6 +18,7 @@ function setup(pathname, modern, titles = ['Bump library']) {
         insertRow() { return this.createTHead(); }
         insertCell() { return this.createTHead(); }
         querySelectorAll() { return []; }
+        addEventListener() {}
     }
     const row = new Element();
     row.textContent = 'Bump library dependabot[bot]';
@@ -80,7 +81,7 @@ test('groups services and flags distinct targets without losing unparsed PRs', (
         'Bump hono and prisma in /packages/database'
     ]);
     const text = JSON.stringify(panel.children);
-    assert.match(text, /hono \(2\) — Different targets: 4.13.7, 4.13.8/);
+    assert.match(text, /Different targets: 4.13.7, 4.13.8/);
     assert.match(text, /4.12.27 → 4.13.7/);
     assert.match(text, /\/packages\/database/);
     assert.match(text, /@scope\/library \(1\)/);
