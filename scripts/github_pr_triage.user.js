@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GitHub PR Triage
 // @namespace    https://github.com/colindchung/tampermonkey
-// @version      1.2.0
+// @version      1.2.1
 // @description  Highlight Dependabot PRs and summarize visible PR metadata.
 // @match        https://github.com/*
 // @grant        none
@@ -50,8 +50,8 @@
         }
         const rows = [...entries.values()];
         if (!rows.length) { panel.remove(); return; }
-        const host = document.querySelector('main h1') || rows[0].row;
-        if (!panel.isConnected) host.before(panel);
+        const host = rows[0].row.parentElement;
+        if (!panel.isConnected || panel.parentElement !== host.parentElement) host.before(panel);
         const groups = new Map();
         for (const entry of rows) {
             const { row, title } = entry;

@@ -9,7 +9,7 @@ function setup(pathname, modern, titles = ['Bump library']) {
     class Element {
         constructor(tag = 'DIV') { this.tagName = tag; this.style = {}; this.children = []; this.isConnected = false; this.textContent = ''; elements.push(this); }
         append(...items) { this.children.push(...items); }
-        before(item) { item.isConnected = true; }
+        before(item) { item.isConnected = true; item.mountedBefore = this.tagName; }
         remove() { this.isConnected = false; }
         contains(item) { return this === item || this.children.some(child => child.contains?.(item)); }
         replaceChildren(...items) { this.children = items; }
@@ -29,7 +29,7 @@ function setup(pathname, modern, titles = ['Bump library']) {
     link.textContent = 'Bump library';
     link.closest = () => modern ? null : row;
     link.parentElement = row;
-    row.parentElement = new Element('MAIN');
+    row.parentElement = new Element('UL');
     const links = titles.map((text, index) => {
         const item = new Element('A');
         item.href = `https://github.com/owner/repo/pull/${123 + index}`;
@@ -56,6 +56,7 @@ for (const modern of [false, true]) {
         const { panel, row } = setup('/owner/repo/pulls', modern);
         assert.equal(panel.isConnected, true);
         assert.equal(panel.open, true);
+        assert.equal(panel.mountedBefore, 'UL');
         assert.equal(row.style.boxShadow, 'inset 4px 0 #bf8700');
         assert.match(JSON.stringify(panel.children), /Bump library/);
     });
